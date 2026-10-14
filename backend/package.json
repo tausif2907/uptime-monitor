@@ -1,0 +1,32 @@
+{
+  "name": "@uptime/backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Background worker: runs HTTP checks, opens/resolves incidents, sends alerts, rolls up stats.",
+  "scripts": {
+    "dev": "tsx watch --env-file-if-exists=../.env src/index.ts",
+    "build": "tsup",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "load:target": "tsx --env-file-if-exists=../.env src/scripts/mock-target.ts",
+    "load:seed": "tsx --env-file-if-exists=../.env src/scripts/load-seed.ts",
+    "load:report": "tsx --env-file-if-exists=../.env src/scripts/load-report.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.16.0",
+    "@uptime/database": "workspace:*",
+    "@uptime/shared": "workspace:*",
+    "bullmq": "^5.34.0",
+    "ioredis": "^5.4.2",
+    "resend": "^4.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "tsup": "^8.3.5",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vitest": "^3.2.4"
+  }
+}
