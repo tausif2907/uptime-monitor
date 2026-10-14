@@ -8,7 +8,7 @@ import { redirect } from "next/navigation";
 import { signIn, signOut } from "@/auth";
 import { actionEmailHtml, emailConfigured, trySendEmail } from "@/lib/email";
 import { fromZodError, type FormState } from "@/lib/form-state";
-import { consume, ipLimit, retryMessage } from "@/lib/rate-limit";
+import { consume, ipLimit, isBlocked, retryMessage } from "@/lib/rate-limit";
 import { appUrl, clientIp } from "@/lib/request";
 import { consumeToken, issueToken } from "@/lib/tokens";
 
@@ -199,8 +199,33 @@ export async function signInWithMagicLink(_prev: FormState, formData: FormData):
   const email = emailSchema.safeParse(formData.get("email"));
   if (!email.success) return { fieldErrors: { email: ["Enter a valid email address."] } };
   if (!emailConfigured()) return { error: "Email sign-in links aren't configured on this server." };
-  await withAuthErrors(() => signIn("resend", { email: email.data, redirectTo: "/dashboard" }));
-  return {};
+
+  // Same limit the provider enforces; checked here too so we can explain it instead of failing.
+  if (await isBlocked([{ key: `magic:${email.data}`, limit: 3, windowSec: 15 * 60 }])) {
+    return { error: "You've requested a few links already. Check your inbox and spam folder, or try again in 15 minutes." };
+  }
+
+  const sendFailed: FormState = {
+    error:
+      "We couldn't send a sign-in link to that address. Check it's correct, or sign in with your password instead." +
+      (process.env.NODE_ENV !== "production"
+        ? " (Dev note: until a domain is verified, Resend only delivers to your own Resend account email.)"
+        : ""),
+  };
+
+  let url: string | undefined;
+  try {
+    url = (await signIn("resend", { email: email.data, redirectTo: "/dashboard", redirect: false })) as string | undefined;
+  } catch (err) {
+    if (err instanceof AuthError) return sendFailed;
+    throw err;
+  }
+  // With redirect: false, Auth.js reports failures as an error URL instead of throwing.
+  if (url?.includes("TwoFactorUsePassword")) {
+    return { error: "This account uses two-factor authentication — please sign in with your password and code." };
+  }
+  if (!url || /[?&]error=/.test(url)) return sendFailed;
+  return { message: `Check your inbox — we sent a sign-in link to ${email.data}. It expires in 15 minutes.` };
 }
 
 /** One-click demo login with the seeded account (credentials come from server env, not the form). */

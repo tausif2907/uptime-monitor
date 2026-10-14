@@ -48,6 +48,8 @@ const nextConfig: NextConfig = {
   eslint: { ignoreDuringBuilds: true },
   // Don't advertise the framework, and never ship browser source maps.
   poweredByHeader: false,
+  // Hide the floating "N" dev badge; navigation progress is shown by <NavigationProgress />.
+  devIndicators: false,
   productionBrowserSourceMaps: false,
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];

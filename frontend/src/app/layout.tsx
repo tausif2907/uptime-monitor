@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
+import { NavigationProgress } from "@/components/navigation-progress";
 import { Toaster } from "@/components/toaster";
 import "./globals.css";
 
@@ -26,6 +27,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body className="min-h-screen">
+        <NavigationProgress />
         {children}
         <Toaster />
       </body>

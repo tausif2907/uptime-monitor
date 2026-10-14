@@ -204,6 +204,16 @@ export function SignUpForm() {
 
 export function MagicLinkForm() {
   const [state, action] = useActionState(signInWithMagicLink, initial);
+  if (state.message) {
+    return (
+      <Alert tone="success" className="animate-slide-up">
+        <p className="flex items-center gap-2 font-medium">
+          <MailCheck className="h-4 w-4" /> Link sent
+        </p>
+        <p className="mt-1">{state.message}</p>
+      </Alert>
+    );
+  }
   return (
     <form action={action} className="space-y-3">
       <FormError message={state.error} />
