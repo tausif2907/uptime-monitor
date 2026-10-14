@@ -21,8 +21,16 @@ model User {
   name          String?
   emailVerified DateTime?
   image         String?
-  // Only set for the seeded demo account (credentials login).
+  // bcrypt hash; null for accounts that only use Google / GitHub / magic links.
   passwordHash  String?
+
+  // Two-factor authentication (TOTP). The secret is AES-256-GCM encrypted at rest.
+  totpSecret    String?
+  totpEnabledAt DateTime?
+  // Last accepted 30-second time step, so a code can't be replayed.
+  totpLastStep  Int?
+  // SHA-256 hashes of unused one-time backup codes.
+  backupCodes   String[]  @default([])
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -185,6 +193,8 @@ model AlertChannel {
   type      AlertChannelType
   // Email address or webhook URL
   target    String
+  // Webhooks only: HMAC-SHA256 key used to sign each request (X-Uptime-Signature header).
+  secret    String?
   isEnabled Boolean          @default(true)
   createdAt DateTime         @default(now())
 

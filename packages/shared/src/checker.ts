@@ -1,5 +1,5 @@
-import { MAX_REDIRECTS } from "@uptime/shared";
-import { assertSafeUrl, SsrfError } from "@uptime/shared/server";
+import { MAX_REDIRECTS } from "./constants";
+import { assertSafeUrl, SsrfError } from "./ssrf";
 
 export interface CheckTarget {
   url: string;

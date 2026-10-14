@@ -2,9 +2,21 @@ import { z } from "zod";
 import { DEFAULT_TIMEOUT_MS, INTERVAL_OPTIONS, MAX_TIMEOUT_MS } from "./constants";
 
 const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+// Control characters (incl. CR/LF) would end up in email subjects, logs and webhook payloads.
+// eslint-disable-next-line no-control-regex
+const CONTROL_CHARS_RE = /[\u0000-\u001f\u007f-\u009f]/;
+
+/** A trimmed, single-line, human-readable label. */
+const label = (max: number, requiredMessage = "Name is required") =>
+  z
+    .string()
+    .trim()
+    .min(1, requiredMessage)
+    .max(max, `Keep it under ${max} characters`)
+    .refine((v) => !CONTROL_CHARS_RE.test(v), "Remove line breaks and special control characters");
 
 export const projectInputSchema = z.object({
-  name: z.string().trim().min(1, "Name is required").max(80),
+  name: label(80),
   slug: z
     .string()
     .trim()
@@ -19,11 +31,11 @@ export const httpUrlSchema = z
   .string()
   .trim()
   .max(2048)
-  .url("Enter a valid URL")
+  .url("Enter a valid URL, e.g. https://example.com")
   .refine((value) => /^https?:\/\//i.test(value), "URL must start with http:// or https://");
 
 export const monitorInputSchema = z.object({
-  name: z.string().trim().min(1, "Name is required").max(100),
+  name: label(100),
   url: httpUrlSchema,
   method: z.enum(["GET", "HEAD", "POST"]).default("GET"),
   intervalSec: z.coerce
@@ -39,8 +51,59 @@ export const monitorInputSchema = z.object({
 });
 export type MonitorInput = z.infer<typeof monitorInputSchema>;
 
+/**
+ * Emails are normalised (Unicode NFKC, lower-case) BEFORE validation and restricted to ASCII,
+ * so look-alike characters can't create a second account that renders like someone else's.
+ */
+export const emailSchema = z
+  .string()
+  .transform((v) => v.normalize("NFKC").trim().toLowerCase())
+  .pipe(
+    z
+      .string()
+      .max(254)
+      .email("Enter a valid email address")
+      .regex(/^[\x21-\x7e]+$/, "Use a plain ASCII email address"),
+  );
+
+export const PASSWORD_MIN = 8;
+// bcrypt only uses the first 72 bytes; refuse longer input instead of silently truncating it.
+export const PASSWORD_MAX = 72;
+
+export const passwordSchema = z
+  .string()
+  .min(PASSWORD_MIN, `Use at least ${PASSWORD_MIN} characters`)
+  .max(PASSWORD_MAX, `Use at most ${PASSWORD_MAX} characters`)
+  .refine((v) => /[a-zA-Z]/.test(v) && /[0-9]/.test(v), "Include at least one letter and one number");
+
+export const signUpSchema = z
+  .object({
+    name: label(80, "Tell us your name"),
+    email: emailSchema,
+    password: passwordSchema,
+  })
+  .refine((v) => !v.password.toLowerCase().includes(v.email.split("@")[0] ?? "\u0000"), {
+    message: "Your password shouldn't contain your email address",
+    path: ["password"],
+  });
+export type SignUpInput = z.infer<typeof signUpSchema>;
+
+export const signInSchema = z.object({
+  email: emailSchema,
+  // Never validate password strength on sign-in (it would leak the policy per account).
+  password: z.string().min(1, "Enter your password").max(PASSWORD_MAX),
+  // Authenticator or backup code, only sent when the account has 2FA enabled.
+  code: z.string().trim().max(20).optional(),
+});
+
+export const resetPasswordSchema = z.object({
+  email: emailSchema,
+  token: z.string().min(20).max(200),
+  password: passwordSchema,
+});
+
 export const alertChannelInputSchema = z.discriminatedUnion("type", [
-  z.object({ type: z.literal("EMAIL"), target: z.string().trim().email("Enter a valid email") }),
+  z.object({ type: z.literal("EMAIL"), target: emailSchema }),
   z.object({ type: z.literal("WEBHOOK"), target: httpUrlSchema }),
 ]);
 export type AlertChannelInput = z.infer<typeof alertChannelInputSchema>;

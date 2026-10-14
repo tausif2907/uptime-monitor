@@ -2,7 +2,7 @@ import { createServer, type Server } from "node:http";
 import { prisma } from "@uptime/database";
 import type { Queue } from "bullmq";
 import type { Redis } from "ioredis";
-import { errorMessage } from "./logger";
+import { errorMessage, logger } from "./logger";
 
 /**
  * GET /health — 200 when Postgres and Redis answer, 503 otherwise.
@@ -46,6 +46,16 @@ export function startHealthServer(port: number, redis: Redis, queue: Queue): Ser
     res.end(JSON.stringify(body));
   });
 
+  server.on("error", (err: NodeJS.ErrnoException) => {
+    if (err.code === "EADDRINUSE") {
+      logger.error(
+        `Port ${port} is already in use — is another worker already running? Stop it first, or set PORT to a free port.`,
+      );
+    } else {
+      logger.error("health server failed", { error: errorMessage(err) });
+    }
+    process.exit(1);
+  });
   server.listen(port);
   return server;
 }

@@ -1,3 +1,4 @@
+import { createHmac } from "node:crypto";
 import { prisma, type AlertChannel, type NotificationEvent } from "@uptime/database";
 import { assertSafeUrl } from "@uptime/shared/server";
 import { config } from "./config";
@@ -90,12 +91,7 @@ async function deliver(channel: AlertChannel, ctx: IncidentContext): Promise<voi
   // WEBHOOK: `text` works for Slack incoming webhooks, `content` for Discord.
   await assertSafeUrl(channel.target, { allowPrivate: config.allowPrivateTargets });
   const summary = `${message.subject}\n${message.text}`;
-  const res = await fetch(channel.target, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    signal: AbortSignal.timeout(10_000),
-    redirect: "error",
-    body: JSON.stringify({
+  const body = JSON.stringify({
       text: summary,
       content: summary,
       event: ctx.event,
@@ -106,7 +102,28 @@ async function deliver(channel: AlertChannel, ctx: IncidentContext): Promise<voi
         startedAt: ctx.startedAt,
         resolvedAt: ctx.resolvedAt,
       },
-    }),
+  });
+  const res = await fetch(channel.target, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "user-agent": "UptimeMonitor-Webhook/1.0",
+      ...(channel.secret ? signatureHeaders(channel.secret, body) : {}),
+    },
+    signal: AbortSignal.timeout(10_000),
+    redirect: "error",
+    body,
   });
   if (!res.ok) throw new Error(`Webhook responded ${res.status}`);
+}
+
+/**
+ * `X-Uptime-Signature: t=<unix seconds>,v1=<hex HMAC-SHA256 of "<t>.<raw body>">`.
+ * Receivers recompute the HMAC with their channel secret, compare in constant time, and reject
+ * timestamps older than ~5 minutes to stop replays.
+ */
+export function signatureHeaders(secret: string, body: string, now = Date.now()) {
+  const t = Math.floor(now / 1000);
+  const v1 = createHmac("sha256", secret).update(`${t}.${body}`).digest("hex");
+  return { "x-uptime-signature": `t=${t},v1=${v1}` };
 }

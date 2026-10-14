@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { performCheck, type CheckTarget } from "../src/checker";
+import { performCheck, type CheckTarget } from "@uptime/shared/server";
 import { startMockServer, type MockServer } from "./mock-server";
 
 let server: MockServer;

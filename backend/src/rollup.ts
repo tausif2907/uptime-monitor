@@ -44,6 +44,16 @@ export async function runDailyRollup(now = new Date(), days = 2) {
     where: { checkedAt: { lt: cutoff } },
   });
 
-  logger.info("daily rollup done", { from, to, upserted, deleted });
-  return { upserted, deleted };
+  // The demo account is shared: wipe projects visitors created there (keeps the seeded one).
+  const demoEmail = (process.env.DEMO_EMAIL ?? "demo@uptime.local").toLowerCase();
+  const { count: demoProjectsRemoved } = await prisma.project.deleteMany({
+    where: {
+      owner: { email: demoEmail },
+      slug: { not: "demo" },
+      createdAt: { lt: new Date(now.getTime() - DAY_MS) },
+    },
+  });
+
+  logger.info("daily rollup done", { from, to, upserted, deleted, demoProjectsRemoved });
+  return { upserted, deleted, demoProjectsRemoved };
 }

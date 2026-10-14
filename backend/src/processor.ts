@@ -1,6 +1,6 @@
 import { prisma, type Incident } from "@uptime/database";
 import { nextState } from "@uptime/shared";
-import { performCheck } from "./checker";
+import { performCheck } from "@uptime/shared/server";
 import { config } from "./config";
 import { notifyIncident } from "./notifier";
 

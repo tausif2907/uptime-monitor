@@ -8,7 +8,7 @@ services:
       POSTGRES_PASSWORD: uptime
       POSTGRES_DB: uptime
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432" # localhost only: never expose the dev DB to the network
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -23,7 +23,7 @@ services:
     # BullMQ requires keys to never be evicted.
     command: ["redis-server", "--maxmemory-policy", "noeviction", "--appendonly", "yes"]
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     volumes:
       - redisdata:/data
     healthcheck:
