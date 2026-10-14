@@ -6,7 +6,10 @@ import { IncidentList } from "@/components/incident-list";
 import { StatusBadge } from "@/components/status-badge";
 import { UptimeBars } from "@/components/uptime-bars";
 import { Card } from "@/components/ui";
+import { DEMO_PROJECT_SLUG, isDemoEmail } from "@/lib/demo";
+import { CopyButton } from "@/components/copy-button";
 import { timeAgo } from "@/lib/format";
+import { appUrl } from "@/lib/request";
 import { getDailyCounts, lastDayKeys, windowUptime } from "@/lib/stats";
 
 // Public and cacheable: regenerate at most once a minute (checks don't run faster than that).
@@ -15,9 +18,12 @@ export const revalidate = 60;
 type Props = { params: Promise<{ slug: string }> };
 
 async function getProject(slug: string) {
-  return prisma.project.findUnique({
+  // Only real slugs reach the DB (also keeps junk out of the query entirely).
+  if (!/^[a-z0-9-]{1,48}$/.test(slug)) return null;
+  const project = await prisma.project.findUnique({
     where: { slug },
     include: {
+      owner: { select: { email: true } },
       monitors: {
         where: { isPaused: false },
         orderBy: { createdAt: "asc" },
@@ -25,6 +31,9 @@ async function getProject(slug: string) {
       },
     },
   });
+  // Projects made on the shared demo account are private (except the curated sample).
+  if (project && isDemoEmail(project.owner.email) && project.slug !== DEMO_PROJECT_SLUG) return null;
+  return project;
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -59,11 +68,14 @@ export default async function StatusPage({ params }: Props) {
   );
 
   return (
-    <main className="mx-auto max-w-3xl px-4 py-12">
-      <h1 className="text-3xl font-bold tracking-tight">{project.name}</h1>
+    <main className="mx-auto max-w-3xl px-4 py-12 animate-fade-in">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-3xl font-bold tracking-tight">{project.name}</h1>
+        <CopyButton value={`${appUrl()}/status/${project.slug}`} label="Share this page" />
+      </div>
 
       <div
-        className={`mt-6 rounded-xl px-5 py-4 font-medium text-white ${
+        className={`mt-6 rounded-2xl px-5 py-4 font-semibold text-white shadow-lg ${
           project.monitors.length === 0 ? "bg-zinc-500" : down.length > 0 ? "bg-down" : "bg-up"
         }`}
       >
@@ -109,7 +121,9 @@ export default async function StatusPage({ params }: Props) {
         </Card>
       </section>
 
-      <footer className="mt-12 text-center text-xs text-zinc-400">Powered by Uptime Monitor</footer>
+      <footer className="mt-12 text-center text-xs text-zinc-400">
+        Powered by <a href="/" className="font-medium hover:text-brand-600">Uptime Monitor</a> · checked every minute
+      </footer>
     </main>
   );
 }

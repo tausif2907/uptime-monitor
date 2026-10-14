@@ -1,13 +1,18 @@
 import { prisma } from "@uptime/database";
 import { formatUptime, MAX_MONITORS_PER_PROJECT } from "@uptime/shared";
+import { ExternalLink, Plus, Radar, Settings } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { AutoRefresh } from "@/components/auto-refresh";
+import { CopyButton } from "@/components/copy-button";
+import { HeartbeatBars } from "@/components/heartbeat-bars";
 import { StatusBadge } from "@/components/status-badge";
-import { buttonClass, Card, EmptyState, PageHeader } from "@/components/ui";
+import { Alert, buttonClass, Card, EmptyState, PageHeader } from "@/components/ui";
+import { isReadOnlyForDemo } from "@/lib/demo";
 import { formatInterval, timeAgo } from "@/lib/format";
+import { appUrl } from "@/lib/request";
 import { requireProject } from "@/lib/session";
-import { getUptime24h } from "@/lib/stats";
+import { getRecentBeats, getUptime24h } from "@/lib/stats";
 
 type Props = { params: Promise<{ projectId: string }> };
 
@@ -15,14 +20,14 @@ export const metadata: Metadata = { title: "Project" };
 
 export default async function ProjectPage({ params }: Props) {
   const { projectId } = await params;
-  const { project } = await requireProject(projectId);
+  const { user, project } = await requireProject(projectId);
+  const readOnly = isReadOnlyForDemo(user, project);
 
-  const monitors = await prisma.monitor.findMany({
-    where: { projectId },
-    orderBy: { createdAt: "asc" },
-  });
-  const uptime = await getUptime24h(monitors.map((m) => m.id));
+  const monitors = await prisma.monitor.findMany({ where: { projectId }, orderBy: { createdAt: "asc" } });
+  const ids = monitors.map((m) => m.id);
+  const [uptime, beats] = await Promise.all([getUptime24h(ids), getRecentBeats(ids)]);
   const atLimit = monitors.length >= MAX_MONITORS_PER_PROJECT;
+  const statusUrl = `${appUrl()}/status/${project.slug}`;
 
   return (
     <>
@@ -30,72 +35,74 @@ export default async function ProjectPage({ params }: Props) {
       <PageHeader
         title={project.name}
         description={
-          <Link href={`/status/${project.slug}`} className="hover:underline" target="_blank">
-            Public status page: /status/{project.slug} ↗
-          </Link>
+          <span className="inline-flex flex-wrap items-center gap-2">
+            <Link href={`/status/${project.slug}`} className="inline-flex items-center gap-1 hover:text-brand-600" target="_blank">
+              Public status page <ExternalLink className="h-3.5 w-3.5" />
+            </Link>
+            <CopyButton value={statusUrl} label="Copy link" />
+          </span>
         }
         actions={
           <>
             <Link href={`/projects/${projectId}/settings`} className={buttonClass("secondary")}>
-              Settings & alerts
+              <Settings className="h-4 w-4" /> Settings & alerts
             </Link>
-            {!atLimit && (
+            {!atLimit && !readOnly && (
               <Link href={`/projects/${projectId}/monitors/new`} className={buttonClass("primary")}>
-                Add monitor
+                <Plus className="h-4 w-4" /> Add monitor
               </Link>
             )}
           </>
         }
       />
 
+      {readOnly && (
+        <Alert tone="info" className="mb-6">
+          This sample project is read-only. Create your own project from the dashboard to try adding and editing monitors.
+        </Alert>
+      )}
+
       {monitors.length === 0 ? (
-        <EmptyState title="No monitors yet">
-          <Link href={`/projects/${projectId}/monitors/new`} className="underline">
+        <EmptyState title="No monitors yet" icon={<Radar className="h-6 w-6" />}>
+          <Link href={`/projects/${projectId}/monitors/new`} className="font-medium text-brand-600 hover:underline">
             Add a URL to watch
           </Link>{" "}
           — the first check runs within a minute.
         </EmptyState>
       ) : (
-        <Card className="overflow-x-auto p-0">
-          <table className="w-full min-w-[640px] text-sm">
-            <thead className="border-b border-zinc-200 text-left text-xs uppercase tracking-wide text-zinc-500 dark:border-zinc-800">
-              <tr>
-                <th className="px-5 py-3 font-medium">Monitor</th>
-                <th className="px-5 py-3 font-medium">Status</th>
-                <th className="px-5 py-3 font-medium">Response</th>
-                <th className="px-5 py-3 font-medium">24h uptime</th>
-                <th className="px-5 py-3 font-medium">Last check</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
-              {monitors.map((m) => (
-                <tr key={m.id} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/40">
-                  <td className="px-5 py-3">
-                    <Link href={`/projects/${projectId}/monitors/${m.id}`} className="font-medium hover:underline">
-                      {m.name}
-                    </Link>
-                    <p className="max-w-xs truncate text-xs text-zinc-500">
-                      {m.method} {m.url} · every {formatInterval(m.intervalSec)}
-                    </p>
-                  </td>
-                  <td className="px-5 py-3" data-testid="monitor-status">
-                    <StatusBadge status={m.status} paused={m.isPaused} />
-                  </td>
-                  <td className="px-5 py-3 tabular-nums">
-                    {m.lastResponseTimeMs != null ? `${m.lastResponseTimeMs} ms` : "—"}
-                  </td>
-                  <td className="px-5 py-3 tabular-nums">{formatUptime(uptime.get(m.id) ?? null)}</td>
-                  <td className="px-5 py-3 text-zinc-500">{timeAgo(m.lastCheckedAt)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </Card>
+        <div className="space-y-3">
+          {monitors.map((m, i) => (
+            <Link key={m.id} href={`/projects/${projectId}/monitors/${m.id}`} className="block animate-slide-up" style={{ animationDelay: `${i * 40}ms` }}>
+              <Card className="group grid items-center gap-4 p-4 transition hover:border-brand-300 hover:shadow-md sm:grid-cols-[minmax(0,1.4fr)_auto_minmax(0,1fr)_auto] dark:hover:border-brand-700">
+                <div className="min-w-0">
+                  <p className="truncate font-semibold group-hover:text-brand-700 dark:group-hover:text-brand-400">{m.name}</p>
+                  <p className="truncate text-xs text-zinc-500">
+                    {m.method} {m.url} · every {formatInterval(m.intervalSec)}
+                  </p>
+                </div>
+                <div data-testid="monitor-status">
+                  <StatusBadge status={m.status} paused={m.isPaused} />
+                </div>
+                <div className="hidden md:block">
+                  <HeartbeatBars beats={beats.get(m.id) ?? []} />
+                </div>
+                <div className="flex gap-5 text-right text-sm">
+                  <div>
+                    <p className="tabular-nums font-medium">{m.lastResponseTimeMs != null ? `${m.lastResponseTimeMs} ms` : "—"}</p>
+                    <p className="text-xs text-zinc-500">{timeAgo(m.lastCheckedAt)}</p>
+                  </div>
+                  <div className="w-16">
+                    <p className="tabular-nums font-medium">{formatUptime(uptime.get(m.id) ?? null)}</p>
+                    <p className="text-xs text-zinc-500">24h</p>
+                  </div>
+                </div>
+              </Card>
+            </Link>
+          ))}
+        </div>
       )}
       {atLimit && (
-        <p className="mt-3 text-sm text-zinc-500">
-          This project has reached the limit of {MAX_MONITORS_PER_PROJECT} monitors.
-        </p>
+        <p className="mt-3 text-sm text-zinc-500">This project has reached the limit of {MAX_MONITORS_PER_PROJECT} monitors.</p>
       )}
     </>
   );

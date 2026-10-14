@@ -1,10 +1,11 @@
 "use client";
 
+import { Loader2 } from "lucide-react";
 import type { ComponentProps } from "react";
 import { useFormStatus } from "react-dom";
 import { Button, type ButtonVariant } from "./ui";
 
-/** A submit button that disables itself while its form's server action runs. */
+/** A submit button that shows a spinner and disables itself while its form's action runs. */
 export function SubmitButton({
   children,
   pendingText,
@@ -23,11 +24,13 @@ export function SubmitButton({
       type="submit"
       variant={variant}
       disabled={pending || props.disabled}
+      aria-busy={pending}
       onClick={(e) => {
         if (confirm && !window.confirm(confirm)) e.preventDefault();
       }}
       {...props}
     >
+      {pending && <Loader2 className="h-4 w-4 animate-spin" />}
       {pending ? (pendingText ?? "Saving…") : children}
     </Button>
   );

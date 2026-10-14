@@ -2,14 +2,16 @@ import { prisma } from "@uptime/database";
 import { formatUptime } from "@uptime/shared";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { CalendarDays, CalendarRange, Gauge, Pause, Pencil, Play, Timer, Trash2, Zap } from "lucide-react";
 import { notFound } from "next/navigation";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { IncidentList } from "@/components/incident-list";
 import { ResponseTimeChart } from "@/components/response-time-chart";
 import { StatusBadge } from "@/components/status-badge";
-import { SubmitButton } from "@/components/submit-button";
+import { ActionButton } from "@/components/action-button";
 import { buttonClass, Card, PageHeader, Stat } from "@/components/ui";
-import { deleteMonitor, togglePauseMonitor } from "@/lib/actions/monitors";
+import { checkNow, deleteMonitor, togglePauseMonitor } from "@/lib/actions/monitors";
+import { isReadOnlyForDemo } from "@/lib/demo";
 import { formatDateTime, formatInterval, timeAgo } from "@/lib/format";
 import { requireMonitor } from "@/lib/session";
 import { getDailyCounts, getUptime24h, windowUptime } from "@/lib/stats";
@@ -20,8 +22,9 @@ export const metadata: Metadata = { title: "Monitor" };
 
 export default async function MonitorPage({ params }: Props) {
   const { projectId, monitorId } = await params;
-  const { monitor } = await requireMonitor(monitorId);
+  const { user, monitor } = await requireMonitor(monitorId);
   if (monitor.projectId !== projectId) notFound();
+  const readOnly = isReadOnlyForDemo(user, monitor.project);
 
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
   const [checks, uptime24h, daily, incidents, recentFailures] = await Promise.all([
@@ -65,33 +68,36 @@ export default async function MonitorPage({ params }: Props) {
           </>
         }
         actions={
-          <>
-            <Link href={`/projects/${projectId}/monitors/${monitorId}/edit`} className={buttonClass("secondary")}>
-              Edit
-            </Link>
-            <form action={togglePauseMonitor.bind(null, monitorId)}>
-              <SubmitButton variant="secondary" pendingText="…">
+          readOnly ? undefined : (
+            <>
+              <ActionButton action={checkNow.bind(null, monitorId)} variant="primary" title="Run a check right now">
+                <Zap className="h-4 w-4" /> Check now
+              </ActionButton>
+              <Link href={`/projects/${projectId}/monitors/${monitorId}/edit`} className={buttonClass("secondary")}>
+                <Pencil className="h-4 w-4" /> Edit
+              </Link>
+              <ActionButton action={togglePauseMonitor.bind(null, monitorId)}>
+                {monitor.isPaused ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
                 {monitor.isPaused ? "Resume" : "Pause"}
-              </SubmitButton>
-            </form>
-            <form action={deleteMonitor.bind(null, monitorId)}>
-              <SubmitButton variant="danger" pendingText="Deleting…" confirm="Delete this monitor and all its history?">
-                Delete
-              </SubmitButton>
-            </form>
-          </>
+              </ActionButton>
+              <ActionButton action={deleteMonitor.bind(null, monitorId)} variant="danger" confirm="Delete this monitor and all its history?">
+                <Trash2 className="h-4 w-4" /> Delete
+              </ActionButton>
+            </>
+          )
         }
       />
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <Stat label="Uptime 24h" value={formatUptime(uptime24h.get(monitorId) ?? null)} />
-        <Stat label="Uptime 7d" value={formatUptime(windowUptime(perDay, 7))} />
-        <Stat label="Uptime 30d" value={formatUptime(windowUptime(perDay, 30))} />
-        <Stat label="Avg response 24h" value={avgMs != null ? `${avgMs} ms` : "—"} />
+        <Stat label="Uptime 24h" value={formatUptime(uptime24h.get(monitorId) ?? null)} icon={<Gauge className="h-4 w-4" />} tone="up" />
+        <Stat label="Uptime 7d" value={formatUptime(windowUptime(perDay, 7))} icon={<CalendarDays className="h-4 w-4" />} />
+        <Stat label="Uptime 30d" value={formatUptime(windowUptime(perDay, 30))} icon={<CalendarRange className="h-4 w-4" />} />
+        <Stat label="Avg response 24h" value={avgMs != null ? `${avgMs} ms` : "—"} icon={<Timer className="h-4 w-4" />} />
       </div>
 
       <Card className="mt-6">
-        <h2 className="mb-4 font-semibold">Response time (24h)</h2>
+        <h2 className="mb-1 font-semibold">Response time (24h)</h2>
+        <p className="mb-4 text-xs text-zinc-500">How long the site took to answer each check. Hover the line for details.</p>
         <ResponseTimeChart
           data={checks.map((c) => ({ t: c.checkedAt.getTime(), ms: c.responseTimeMs, ok: c.ok }))}
         />

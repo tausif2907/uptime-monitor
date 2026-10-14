@@ -101,3 +101,27 @@ export async function getUptime24h(monitorIds: string[]): Promise<Map<string, nu
   }
   return new Map([...counts].map(([id, c]) => [id, uptimePercent(c)]));
 }
+
+export interface Beat {
+  ok: boolean;
+  responseTimeMs: number | null;
+  checkedAt: Date;
+}
+
+/** The last `n` checks per monitor (oldest first), for heartbeat bars. One query for all monitors. */
+export async function getRecentBeats(monitorIds: string[], n = 30): Promise<Map<string, Beat[]>> {
+  const result = new Map<string, Beat[]>(monitorIds.map((id) => [id, []]));
+  if (monitorIds.length === 0) return result;
+  const rows = await prisma.$queryRaw<(Beat & { monitorId: string })[]>`
+    SELECT "monitorId", "ok", "responseTimeMs", "checkedAt" FROM (
+      SELECT "monitorId", "ok", "responseTimeMs", "checkedAt",
+             ROW_NUMBER() OVER (PARTITION BY "monitorId" ORDER BY "checkedAt" DESC) AS rn
+      FROM "CheckResult"
+      WHERE "monitorId" = ANY(${monitorIds}::text[]) AND "checkedAt" > NOW() - INTERVAL '2 days'
+    ) recent
+    WHERE rn <= ${n}
+    ORDER BY "checkedAt" ASC
+  `;
+  for (const row of rows) result.get(row.monitorId)?.push(row);
+  return result;
+}
