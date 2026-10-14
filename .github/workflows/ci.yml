@@ -17,7 +17,12 @@ env:
   APP_URL: http://localhost:3000
   DEMO_LOGIN_ENABLED: "true"
   DEMO_EMAIL: demo@uptime.local
-  DEMO_PASSWORD: demo-password
+  # Production builds refuse the default demo password.
+  DEMO_PASSWORD: ci-demo-password-not-default
+  # Test-only switches: show emailed links in the UI (no email provider in CI) and relax
+  # per-IP rate limits (every test request comes from one machine). Never set in production.
+  E2E_SHOW_EMAIL_LINKS: "true"
+  RATE_LIMIT_IP_MULTIPLIER: "50"
 
 jobs:
   # Lint, type-check, unit + integration tests (with real Postgres and Redis) and build.
@@ -46,6 +51,8 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Dependency audit (fail on high/critical)
+        run: pnpm audit --prod --audit-level high
       - name: Lint
         run: pnpm lint
       - name: Type-check
@@ -94,7 +101,7 @@ jobs:
           pnpm --filter @uptime/backend start > worker.log 2>&1 &
           sleep 3
           curl --retry 10 --retry-delay 2 --retry-connrefused -fsS http://localhost:4000/health
-      - name: Run Playwright
+      - name: Run Playwright (functional + security suites)
         run: pnpm test:e2e
       - name: Worker logs
         if: failure()

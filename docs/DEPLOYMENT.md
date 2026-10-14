@@ -51,15 +51,32 @@ Both Vercel and Railway redeploy automatically when you push to `main`. CI runs 
    EMAIL_FROM=Uptime Monitor <onboarding@resend.dev>
    DEMO_LOGIN_ENABLED=true
    DEMO_EMAIL=demo@uptime.local
-   DEMO_PASSWORD=<pick a new value; it's only used server-side>
-   # optional Google sign-in:
+   DEMO_PASSWORD=<pick a new value — the default "demo-password" is refused in production>
+   SUPPORT_EMAIL=<optional, shown on the Help page>
+   # optional one-click sign-in:
    AUTH_GOOGLE_ID=...
    AUTH_GOOGLE_SECRET=...
+   AUTH_GITHUB_ID=...
+   AUTH_GITHUB_SECRET=...
    ```
+   **Never** set `E2E_SHOW_EMAIL_LINKS` or `RATE_LIMIT_IP_MULTIPLIER` in production; they exist for tests only.
 4. Deploy, then check `https://<app>.vercel.app/api/health`.
 
-### Google sign-in (optional)
-Google Cloud Console → *APIs & Services → Credentials → OAuth client ID (Web)*. Set the authorised redirect URI to `https://<app>.vercel.app/api/auth/callback/google`, and add `http://localhost:3000/api/auth/callback/google` for local dev.
+Sign-in options appear automatically once their keys are set: **email + password** (always on), **email magic link** (when `RESEND_API_KEY` is set), **Google** and **GitHub**.
+
+### "Continue with Google" (optional)
+1. https://console.cloud.google.com → create a project → *APIs & Services → OAuth consent screen* (External; add your app name and email).
+2. *Credentials → Create credentials → OAuth client ID → Web application*.
+3. Authorised redirect URIs: `https://<app>.vercel.app/api/auth/callback/google`, plus `http://localhost:3100/api/auth/callback/google` for local dev.
+4. Copy the Client ID and secret into `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET`.
+
+### "Continue with GitHub" (optional)
+1. https://github.com/settings/developers → *New OAuth App*.
+2. Homepage URL: `https://<app>.vercel.app`. Callback URL: `https://<app>.vercel.app/api/auth/callback/github`. GitHub allows one callback per app, so create a second app for local dev with `http://localhost:3100/api/auth/callback/github`.
+3. Copy the Client ID and a new client secret into `AUTH_GITHUB_ID` / `AUTH_GITHUB_SECRET`.
+
+### Email to real users (Resend domain)
+Until you verify a domain, Resend only delivers to **your own** account email, so other people's sign-up verification emails won't arrive. In Resend → *Domains*, add your domain, add the DNS records it shows, then set `EMAIL_FROM="Uptime <noreply@yourdomain.com>"`.
 
 ## 4. Seed the production demo account (once)
 

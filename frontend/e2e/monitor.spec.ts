@@ -1,29 +1,22 @@
 import { expect, test } from "@playwright/test";
+import { createMonitor, createProject, newUser } from "./helpers";
 
 /**
- * Happy path: sign in -> create project -> add monitor -> worker checks it -> status turns UP
- * -> the public status page shows it.
+ * Happy path: sign up -> verify email -> create project -> add monitor -> worker checks it
+ * -> status turns UP -> the public status page shows it. Needs the worker running.
  */
-test("sign in, add a monitor, see it go UP on the dashboard and status page", async ({ page }) => {
-  const suffix = Date.now().toString(36);
-  const slug = `e2e-${suffix}`;
+test("sign up, add a monitor, see it go UP on the dashboard and status page", async ({ page }) => {
+  await newUser(page, "happy");
+  const slug = `e2e-${Date.now().toString(36)}`;
+  const projectId = await createProject(page, "E2E project", slug);
 
-  // Sign in with the seeded demo account.
-  await page.goto("/login");
-  await page.getByRole("button", { name: "Try the demo account" }).click();
-  await expect(page).toHaveURL(/\/dashboard/);
+  // Test URL gives instant feedback before saving.
+  await page.goto(`/projects/${projectId}/monitors/new`);
+  await page.getByLabel("URL to check").fill(process.env.E2E_TARGET_URL ?? "https://example.com");
+  await page.getByRole("button", { name: "Test URL" }).click();
+  await expect(page.getByText(/Looks good|would fail/)).toBeVisible({ timeout: 20_000 });
 
-  // Create a project.
-  await page.getByLabel("Project name").fill(`E2E ${suffix}`);
-  await page.getByLabel("Status page slug").fill(slug);
-  await page.getByRole("button", { name: "Create project" }).click();
-  await expect(page.getByRole("heading", { name: `E2E ${suffix}` })).toBeVisible();
-
-  // Add a monitor.
-  await page.getByRole("link", { name: "Add monitor" }).click();
-  await page.getByLabel("Name").fill("Example");
-  await page.getByLabel("URL").fill(process.env.E2E_TARGET_URL ?? "https://example.com");
-  await page.getByRole("button", { name: "Create monitor" }).click();
+  await createMonitor(page, projectId, "Example", process.env.E2E_TARGET_URL ?? "https://example.com");
   await expect(page.getByRole("heading", { name: /Example/ })).toBeVisible();
 
   // Wait for the worker's first check to flip the status to UP.
@@ -36,12 +29,15 @@ test("sign in, add a monitor, see it go UP on the dashboard and status page", as
   await page.goto(`/status/${slug}`);
   await expect(page.getByRole("heading", { name: "Example" })).toBeVisible();
   await expect(page.getByText("All systems operational")).toBeVisible();
+});
 
-  // Clean up so the shared demo account doesn't fill up with test projects.
-  await page.goto("/dashboard");
-  await page.getByRole("link", { name: new RegExp(`E2E ${suffix}`) }).click();
-  await page.getByRole("link", { name: "Settings & alerts" }).click();
-  page.once("dialog", (dialog) => dialog.accept());
-  await page.getByRole("button", { name: "Delete project" }).click();
-  await expect(page).toHaveURL(/\/dashboard/);
+test("the interactive guide simulator explains the 2-failure rule", async ({ page }) => {
+  await page.goto("/guide#alerts");
+  const fail = page.getByRole("button", { name: "Check fails" });
+  await fail.click();
+  await expect(page.getByText("One failure isn't an outage")).toBeVisible();
+  await fail.click();
+  await expect(page.getByText("“Site is DOWN” email sent")).toBeVisible();
+  await page.getByRole("button", { name: "Check succeeds" }).click();
+  await expect(page.getByText("“Back UP” email sent")).toBeVisible();
 });

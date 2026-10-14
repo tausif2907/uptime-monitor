@@ -1,8 +1,12 @@
 # Uptime Monitor
 
+<p align="left"><img src="frontend/src/app/icon.svg" width="56" alt="uptime logo"></p>
+
 An uptime monitoring app with public status pages. It checks your websites every 1–5 minutes, records response times, opens an incident after 2 consecutive failures, emails you when a site goes down and when it recovers, and gives every project a public `/status/<slug>` page with 90 days of history.
 
 **Stack:** Next.js 15 (App Router) · TypeScript · Tailwind CSS · Auth.js · Recharts · Node.js worker · BullMQ · PostgreSQL + Prisma · Redis · Resend · Vitest · Playwright
+
+**Highlights:** sign up with email + password (verified), Google, GitHub or a magic link · two-factor authentication · Test URL before saving · Check now · heartbeat bars and charts · in-app guide with an interactive incident simulator · searchable help centre · dark mode. Security is documented and tested in [docs/SECURITY.md](docs/SECURITY.md).
 
 > **Live demo:** _add your Vercel URL here after deploying_ · demo login: click **"Try the demo account"** on the sign-in page · demo status page: `/status/demo`
 
@@ -50,7 +54,8 @@ uptime-monitor/
 ├── packages/
 │   ├── database/             Prisma schema, migrations, seed script, shared Prisma client
 │   └── shared/               Zod schemas, nextState(), uptime maths, SSRF guard, queue helpers (+ unit tests)
-├── docs/DEPLOYMENT.md        step-by-step deploy guide (Vercel + Railway + Resend)
+├── docs/DEPLOYMENT.md        step-by-step deploy guide (Vercel + Railway + Resend + Google/GitHub sign-in)
+├── docs/SECURITY.md          security checklist: what's protected and how it's tested
 ├── docker-compose.yml        local Postgres + Redis
 ├── DECISIONS.md              engineering decisions
 └── .github/workflows/ci.yml  lint, type-check, tests, build, e2e
@@ -65,7 +70,7 @@ pnpm run bootstrap  # creates .env, installs deps, starts Postgres + Redis, migr
 pnpm dev            # runs the web app (http://localhost:3000) and the worker together
 ```
 
-Then open http://localhost:3000, click **Try the demo account**, and you'll see a demo project with three monitors and seeded history. Real checks start within a minute.
+Then open http://localhost:3000, **create an account** (without `RESEND_API_KEY` the verification link is shown right on the page), or click **Try the demo account**, and you'll see a demo project with three monitors and seeded history. Real checks start within a minute.
 
 - Port 3000 taken? Run `pnpm --filter @uptime/frontend exec next dev -p 3100` instead.
 - Without `RESEND_API_KEY`, emails (sign-in links and alerts) are **printed to the worker / web console** instead of being sent.
@@ -89,7 +94,8 @@ Then open http://localhost:3000, click **Try the demo account**, and you'll see 
 | Unit | every `nextState()` transition, uptime % maths, SSRF guard (private IPs, encoded IPs, DNS tricks, schemes) | `packages/shared/src/*.test.ts` |
 | Integration | worker against a local mock server: 200, 500, slow, hung, redirects, redirect loops, refused connections | `backend/test/checker.integration.test.ts` |
 | Integration (DB) | full pipeline on real Postgres: blip ≠ outage, 2 failures open 1 incident, duplicate alerts suppressed, recovery resolves | `backend/test/processor.integration.test.ts` |
-| End-to-end | sign in → create project → add monitor → status turns UP → public status page | `frontend/e2e/monitor.spec.ts` |
+| End-to-end | sign up → verify → create project → Test URL → add monitor → status turns UP → public status page | `frontend/e2e/monitor.spec.ts` |
+| Security (e2e) | 20 attack scenarios: XSS, SQLi, CSRF, IDOR, SSRF, brute force, 2FA, enumeration, reset links, CORS, headers, source maps, leaked secrets, spam relay | `frontend/e2e/security.spec.ts` |
 | Load | 1,000 monitors at 1-minute intervals | `backend/src/scripts/load-*.ts` |
 
 ## Load test results
