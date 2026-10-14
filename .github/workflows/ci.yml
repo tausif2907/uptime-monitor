@@ -1,0 +1,107 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DATABASE_URL: postgresql://uptime:uptime@localhost:5432/uptime?schema=public
+  REDIS_URL: redis://localhost:6379
+  AUTH_SECRET: ci-only-secret-not-used-in-production
+  AUTH_TRUST_HOST: "true"
+  APP_URL: http://localhost:3000
+  DEMO_LOGIN_ENABLED: "true"
+  DEMO_EMAIL: demo@uptime.local
+  DEMO_PASSWORD: demo-password
+
+jobs:
+  # Lint, type-check, unit + integration tests (with real Postgres and Redis) and build.
+  check:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: uptime
+          POSTGRES_PASSWORD: uptime
+          POSTGRES_DB: uptime
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U uptime" --health-interval 5s --health-timeout 3s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 3s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Lint
+        run: pnpm lint
+      - name: Type-check
+        run: pnpm typecheck
+      - name: Apply migrations
+        run: pnpm db:deploy
+      - name: Unit + integration tests
+        run: pnpm test
+      - name: Build
+        run: pnpm build
+
+  # Full-stack end-to-end test: web app + worker + Postgres + Redis + Playwright.
+  e2e:
+    runs-on: ubuntu-latest
+    needs: check
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: uptime
+          POSTGRES_PASSWORD: uptime
+          POSTGRES_DB: uptime
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U uptime" --health-interval 5s --health-timeout 3s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 3s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm db:deploy
+      - run: pnpm db:seed
+      - run: pnpm build
+      - name: Install Playwright browser
+        run: pnpm --filter @uptime/frontend exec playwright install --with-deps chromium
+      - name: Start worker
+        run: |
+          pnpm --filter @uptime/backend start > worker.log 2>&1 &
+          sleep 3
+          curl --retry 10 --retry-delay 2 --retry-connrefused -fsS http://localhost:4000/health
+      - name: Run Playwright
+        run: pnpm test:e2e
+      - name: Worker logs
+        if: failure()
+        run: cat worker.log
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: frontend/playwright-report
+          retention-days: 7
