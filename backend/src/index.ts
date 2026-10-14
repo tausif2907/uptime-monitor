@@ -54,7 +54,7 @@ async function start() {
   );
 
   // Make the queue match the DB right away rather than waiting 10 minutes.
-  await reconcileSchedules(checksQueue);
+  await reconcileSchedules(checksQueue, { force: true });
 
   const health = startHealthServer(config.port, connection, checksQueue);
   logger.info("worker started", {

@@ -55,7 +55,9 @@ export async function syncMonitorSchedule(
     {
       name: JOBS.check,
       data: { monitorId: monitor.id },
-      opts: { removeOnComplete: 1000, removeOnFail: 1000 },
+      // One retry after 5 s rides out a brief database/Redis blip without skipping a check.
+      // (Incidents and alerts are idempotent, so a retry can't double-alert.)
+      opts: { removeOnComplete: 1000, removeOnFail: 1000, attempts: 2, backoff: { type: "fixed", delay: 5_000 } },
     },
   );
 }

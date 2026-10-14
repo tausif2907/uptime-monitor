@@ -62,6 +62,11 @@ export async function processCheck(monitorId: string): Promise<ProcessResult> {
     }
 
     return null;
+  }, {
+    // Prisma's default is to give up after 2 s waiting for a pooled connection. After a database
+    // restart the pool can hold dead connections for a while, so be more patient.
+    maxWait: 10_000,
+    timeout: 15_000,
   });
 
   if (incident && next.action) {
