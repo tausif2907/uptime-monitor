@@ -34,6 +34,13 @@ export default async function AccountPage() {
   const accounts = await prisma.account.findMany({ where: { userId: user.id }, select: { provider: true } });
   const demo = isDemoEmail(user.email);
   const hasPassword = Boolean(user.passwordHash);
+  // Accounts that only sign in through Google/GitHub have no password here: their security
+  // (including 2-step verification) is handled by that provider, so we don't offer ours.
+  const social = accounts.map((a) => a.provider).filter((p) => p === "google" || p === "github");
+  const socialOnly = !hasPassword && social.length > 0;
+  const providerName = social[0] === "github" ? "GitHub" : "Google";
+  const providerSecurityUrl =
+    social[0] === "github" ? "https://github.com/settings/security" : "https://myaccount.google.com/security";
 
   return (
     <div className="max-w-3xl space-y-6">
@@ -57,13 +64,30 @@ export default async function AccountPage() {
         </div>
       </Section>
 
-      {!demo && (
+      {!demo && socialOnly && (
+        <Section icon={<ShieldCheck className="h-4 w-4" />} title={`Secured by ${providerName}`}>
+          <p className="text-sm text-zinc-600 dark:text-zinc-400">
+            You sign in with your {providerName} account, so there&apos;s no separate password here. Your password and
+            2-step verification are managed by {providerName}.
+          </p>
+          <a
+            href={providerSecurityUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-brand-600 hover:underline"
+          >
+            Review your {providerName} security settings ↗
+          </a>
+        </Section>
+      )}
+
+      {!demo && !socialOnly && (
         <Section icon={<KeyRound className="h-4 w-4" />} title={hasPassword ? "Change password" : "Set a password"} description={hasPassword ? undefined : "Add a password so you can also sign in with email + password (and enable 2FA)."}>
           <PasswordForm hasPassword={hasPassword} />
         </Section>
       )}
 
-      {!demo && (
+      {!demo && !socialOnly && (
         <Section icon={<ShieldCheck className="h-4 w-4" />} title="Two-factor authentication (2FA)" description="Protect your account even if your password leaks.">
           {user.totpEnabledAt ? (
             <TwoFactorManageCard backupCodesLeft={user.backupCodes.length} />

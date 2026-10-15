@@ -51,6 +51,11 @@ export async function changePassword(_prev: FormState, formData: FormData): Prom
     .safeParse(Object.fromEntries(formData));
   if (!parsed.success) return fromZodError(parsed.error);
 
+  if (!user.passwordHash) {
+    // Google/GitHub-only accounts are secured by their provider; don't add a second way in.
+    const social = await prisma.account.count({ where: { userId: user.id, provider: { in: ["google", "github"] } } });
+    if (social > 0) return { error: "This account signs in with Google or GitHub, so it doesn't use a password here." };
+  }
   if (user.passwordHash) {
     const ok = await bcrypt.compare(parsed.data.current ?? "", user.passwordHash);
     if (!ok) return { fieldErrors: { current: ["Current password is incorrect."] } };
