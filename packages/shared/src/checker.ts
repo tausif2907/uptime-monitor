@@ -85,7 +85,9 @@ export async function performCheck(
 }
 
 function describeError(err: unknown, target: CheckTarget): string {
-  if (err instanceof SsrfError) return `Blocked: ${err.message}`;
+  if (err instanceof SsrfError) {
+    return err.reason === "unresolvable" ? err.message : `Blocked: ${err.message}`;
+  }
   if (err instanceof Error && err.name === "AbortError") {
     return `Timed out after ${target.timeoutMs} ms`;
   }

@@ -7,7 +7,11 @@ import { BlockList, isIP } from "node:net";
  * at 169.254.169.254), multicast or reserved is rejected, as are non-HTTP(S) schemes.
  */
 export class SsrfError extends Error {
-  constructor(message: string) {
+  /** "unresolvable" = the domain doesn't exist (not a security block). */
+  constructor(
+    message: string,
+    readonly reason: "blocked" | "unresolvable" = "blocked",
+  ) {
     super(message);
     this.name = "SsrfError";
   }
@@ -103,9 +107,11 @@ export async function assertSafeUrl(raw: string | URL, options: SafeUrlOptions =
     try {
       addresses = await (options.lookup ?? defaultLookup)(hostname);
     } catch {
-      throw new SsrfError(`Could not resolve host "${hostname}"`);
+      throw new SsrfError(`Could not resolve host "${hostname}" — check the domain is spelled correctly`, "unresolvable");
     }
-    if (addresses.length === 0) throw new SsrfError(`Could not resolve host "${hostname}"`);
+    if (addresses.length === 0) {
+      throw new SsrfError(`Could not resolve host "${hostname}" — check the domain is spelled correctly`, "unresolvable");
+    }
   }
 
   // Every resolved address must be public, otherwise an attacker could mix in a private one.

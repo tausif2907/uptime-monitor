@@ -85,4 +85,12 @@ describe("performCheck against a local mock server", () => {
     expect(result.ok).toBe(false);
     expect(result.error).toMatch(/^Blocked:/);
   });
+
+  it("a domain that doesn't exist is reported plainly, not as 'Blocked'", async () => {
+    const result = await performCheck(
+      { url: "https://this-site-does-not-exist-uptime-test.invalid", method: "GET", timeoutMs: 5000, expectedStatus: 200 },
+    );
+    expect(result.ok).toBe(false);
+    expect(result.error).toMatch(/^Could not resolve host/);
+  });
 });
