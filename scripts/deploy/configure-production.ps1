@@ -9,11 +9,22 @@ param(
   [string]$AppUrl = "https://uptime-monitor-seven-tau.vercel.app",
   [string]$AdminEmails = "tausifansari2907@gmail.com"
 )
-$ErrorActionPreference = "Stop"
+# Native CLIs (vercel, railway, pnpm) write progress to stderr; Windows PowerShell 5.1 would
+# treat that as an error under "Stop". Judge them by exit code instead (see Invoke-Cli).
+$ErrorActionPreference = "Continue"
+trap { Write-Host "`nStopped: $_" -ForegroundColor Red; exit 1 }
+
+function Invoke-Cli([string]$what, [scriptblock]$cmd) {
+  $output = & $cmd 2>&1 | Out-String
+  if ($LASTEXITCODE -ne 0) {
+    Write-Host $output
+    throw "Failed: $what"
+  }
+}
 
 function Get-RailwayVars([string]$service) {
-  $json = railway variables --service $service --json 2>$null
-  if (-not $json) { throw "Could not read Railway variables for $service (are you logged in and linked?)" }
+  $json = (railway variables --service $service --json 2>$null | Out-String).Trim()
+  if (-not $json.StartsWith("{")) { throw "Could not read Railway variables for $service (are you logged in and linked?)" }
   return $json | ConvertFrom-Json
 }
 
@@ -35,8 +46,7 @@ function Get-PublicUrl($vars, [string]$urlKey) {
 function Set-VercelEnv([string]$name, [string]$value, [switch]$Sensitive) {
   $cliArgs = @("env", "add", $name, "production", "--force", "--value", $value, "--yes")
   if ($Sensitive) { $cliArgs += "--sensitive" } else { $cliArgs += "--no-sensitive" }
-  & vercel @cliArgs *> $null
-  if ($LASTEXITCODE -ne 0) { throw "Failed to set $name on Vercel" }
+  Invoke-Cli "set $name on Vercel" { vercel @cliArgs }
   Write-Host "  set $name" -ForegroundColor DarkGray
 }
 
@@ -66,7 +76,7 @@ Set-VercelEnv "DEMO_EMAIL" "demo@uptime.local"
 Set-VercelEnv "ADMIN_EMAILS" $AdminEmails
 if ($resendKey) {
   Set-VercelEnv "RESEND_API_KEY" $resendKey -Sensitive
-  railway variables --service worker --set "RESEND_API_KEY=$resendKey" --skip-deploys *> $null
+  Invoke-Cli "set RESEND_API_KEY on Railway" { railway variables --service worker --set "RESEND_API_KEY=$resendKey" --skip-deploys }
   Write-Host "  set RESEND_API_KEY on the Railway worker" -ForegroundColor DarkGray
 }
 
@@ -74,12 +84,14 @@ Write-Host "4/5 Creating the demo account in the production database..." -Foregr
 $env:DATABASE_URL = $databaseUrl
 $env:DEMO_PASSWORD = $demoPassword
 $env:DEMO_EMAIL = "demo@uptime.local"
-pnpm --filter @uptime/database exec tsx prisma/seed.ts
+Invoke-Cli "seed the demo account" { pnpm --filter @uptime/database exec tsx prisma/seed.ts }
+Write-Host "  demo account ready" -ForegroundColor DarkGray
 Remove-Item Env:DATABASE_URL, Env:DEMO_PASSWORD, Env:DEMO_EMAIL
 
 Write-Host "5/5 Redeploying the worker and the website with the new settings..." -ForegroundColor Cyan
-railway redeploy --service worker --yes *> $null
-vercel deploy --prod --yes *> $null
-if ($LASTEXITCODE -ne 0) { throw "Vercel deploy failed - run 'vercel deploy --prod' to see why" }
+Invoke-Cli "redeploy the Railway worker" { railway redeploy --service worker --yes }
+Write-Host "  worker redeploying" -ForegroundColor DarkGray
+Invoke-Cli "deploy the website to Vercel" { vercel deploy --prod --yes }
+Write-Host "  website deployed" -ForegroundColor DarkGray
 
 Write-Host "`nDone! Open $AppUrl" -ForegroundColor Green
