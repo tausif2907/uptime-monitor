@@ -18,6 +18,7 @@ const globalForRl = globalThis as unknown as { rateLimitRedis?: Redis };
 function redis(): Redis | null {
   if (!process.env.REDIS_URL) return null;
   globalForRl.rateLimitRedis ??= new Redis(process.env.REDIS_URL, {
+    family: 0,
     maxRetriesPerRequest: 1,
     connectTimeout: 2000,
   });

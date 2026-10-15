@@ -1,0 +1,10 @@
+# Never upload local secrets or test-only settings to Vercel (production env comes from the dashboard).
+.env
+.env.*
+!.env.example
+**/node_modules
+**/.next
+**/dist
+**/test-results
+**/playwright-report
+.git

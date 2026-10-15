@@ -15,7 +15,8 @@ export const monitorSchedulerId = (monitorId: string) => `monitor:${monitorId}`;
  */
 export function createRedisConnection(url = process.env.REDIS_URL): Redis {
   if (!url) throw new Error("REDIS_URL is not set");
-  return new Redis(url, { maxRetriesPerRequest: null });
+  // family: 0 = resolve both IPv4 and IPv6 (Railway's private network is IPv6-only).
+  return new Redis(url, { maxRetriesPerRequest: null, family: 0 });
 }
 
 const globalForQueue = globalThis as unknown as { checksQueue?: Queue<CheckJobData> };

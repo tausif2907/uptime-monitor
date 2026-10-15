@@ -21,7 +21,7 @@ Both Vercel and Railway redeploy automatically when you push to `main`. CI runs 
 1. Create a project at https://railway.com → **Deploy from GitHub repo** → pick `uptime-monitor`.
 2. In the project, add **Database → PostgreSQL** and **Database → Redis**.
 3. Open the service created from the repo (this is the worker):
-   - **Settings → Config-as-code → Railway config file:** `backend/railway.json`. This builds `backend/Dockerfile` from the repo root and health-checks `/health`.
+   - **Config-as-code:** `railway.json` in the repo root (picked up automatically). This builds `backend/Dockerfile` from the repo root and health-checks `/health`.
    - **Settings → Networking → Generate domain** (so you can monitor `/health`).
    - **Variables:**
      ```
