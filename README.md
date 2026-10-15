@@ -8,7 +8,7 @@ An uptime monitoring app with public status pages. It checks your websites every
 
 **Highlights:** sign up with email + password (verified), Google, GitHub or a magic link · two-factor authentication · Test URL before saving · Check now · heartbeat bars and charts · in-app guide with an interactive incident simulator · searchable help centre · dark mode. Security is documented and tested in [docs/SECURITY.md](docs/SECURITY.md).
 
-> **Live demo:** _add your Vercel URL here after deploying_ · demo login: click **"Try the demo account"** on the sign-in page · demo status page: `/status/demo`
+> **Live demo:** https://uptime-monitor-seven-tau.vercel.app · demo login: click **"Try the demo account"** on the sign-in page · demo status page: `/status/demo`
 
 ---
 
