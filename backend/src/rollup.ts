@@ -54,6 +54,11 @@ export async function runDailyRollup(now = new Date(), days = 2) {
     },
   });
 
-  logger.info("daily rollup done", { from, to, upserted, deleted, demoProjectsRemoved });
-  return { upserted, deleted, demoProjectsRemoved };
+  // Analytics page views are kept 90 days.
+  const { count: pageViewsRemoved } = await prisma.pageView.deleteMany({
+    where: { createdAt: { lt: new Date(to.getTime() - 90 * DAY_MS) } },
+  });
+
+  logger.info("daily rollup done", { from, to, upserted, deleted, demoProjectsRemoved, pageViewsRemoved });
+  return { upserted, deleted, demoProjectsRemoved, pageViewsRemoved };
 }

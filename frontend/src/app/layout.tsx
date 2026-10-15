@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import { NavigationProgress } from "@/components/navigation-progress";
+import { PageTracker } from "@/components/page-tracker";
 import { Toaster } from "@/components/toaster";
 import "./globals.css";
 
@@ -30,6 +31,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <NavigationProgress />
         {children}
         <Toaster />
+        <PageTracker />
       </body>
     </html>
   );

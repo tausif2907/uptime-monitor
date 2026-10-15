@@ -165,6 +165,18 @@ function verify(rawBody, header, secret) {
       </ul>
     ),
   },
+  {
+    category: "Account & security",
+    q: "Do you track me?",
+    keywords: "privacy analytics tracking cookies visitors",
+    a: (
+      <p>
+        We count page visits to see how the site is used, without cookies and without storing your IP address. Visitors are
+        counted with an anonymous code that changes every day, so visits can&apos;t be linked over time. If your browser sends
+        Do-Not-Track or Global Privacy Control, we don&apos;t count you at all. Visit data is deleted after 90 days.
+      </p>
+    ),
+  },
 ];
 
 export default function HelpPage() {

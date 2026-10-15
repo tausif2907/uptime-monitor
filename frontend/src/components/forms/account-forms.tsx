@@ -89,9 +89,19 @@ function BackupCodes({ codes }: { codes: string[] }) {
 
 export function TwoFactorSetupCard({ hasPassword }: { hasPassword: boolean }) {
   const router = useRouter();
+  const [saved, setSaved] = useState(false);
   const [setup, setSetup] = useState<TwoFactorSetup | null>(null);
   const [pending, start] = useTransition();
   const [state, action] = useActionState<TwoFactorConfirm, FormData>(confirmTwoFactor, {});
+
+  if (state.backupCodes && saved) {
+    return (
+      <Alert tone="success" className="animate-slide-up">
+        <span className="inline-flex items-center gap-2 font-medium"><ShieldCheck className="h-4 w-4" /> Two-factor authentication is on.</span>{" "}
+        {state.backupCodes.length} backup codes left. You&apos;ll be asked for a code next time you sign in.
+      </Alert>
+    );
+  }
 
   if (state.backupCodes) {
     return (
@@ -100,7 +110,16 @@ export function TwoFactorSetupCard({ hasPassword }: { hasPassword: boolean }) {
           <span className="inline-flex items-center gap-2 font-medium"><ShieldCheck className="h-4 w-4" /> Two-factor authentication is on.</span>
         </Alert>
         <BackupCodes codes={state.backupCodes} />
-        <Button type="button" onClick={() => router.refresh()}>I&apos;ve saved my backup codes</Button>
+        <Button
+          type="button"
+          onClick={() => {
+            // Show the confirmation right away; the refresh then swaps in the full "manage" card.
+            setSaved(true);
+            router.refresh();
+          }}
+        >
+          I&apos;ve saved my backup codes
+        </Button>
       </div>
     );
   }

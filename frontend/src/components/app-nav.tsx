@@ -1,6 +1,6 @@
 "use client";
 
-import { BookOpen, LayoutDashboard, LifeBuoy, LogOut, Menu, Settings, X } from "lucide-react";
+import { BarChart3, BookOpen, LayoutDashboard, LifeBuoy, LogOut, Menu, Settings, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
@@ -16,13 +16,17 @@ const links = [
   { href: "/account", label: "Account", icon: Settings, match: ["/account"] },
 ];
 
-export function AppNav({ name, email, isDemo }: { name: string | null; email: string; isDemo: boolean }) {
+export function AppNav({ name, email, isDemo, isAdmin = false }: { name: string | null; email: string; isDemo: boolean; isAdmin?: boolean }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const initial = (name ?? email).trim().charAt(0).toUpperCase();
 
+  const visibleLinks = isAdmin
+    ? [...links, { href: "/admin", label: "Admin", icon: BarChart3, match: ["/admin"] }]
+    : links;
+
   const linkEls = (mobile: boolean) =>
-    links.map(({ href, label, icon: Icon, match }) => {
+    visibleLinks.map(({ href, label, icon: Icon, match }) => {
       const active = match.some((m) => pathname.startsWith(m));
       return (
         <Link

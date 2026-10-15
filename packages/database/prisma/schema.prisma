@@ -231,3 +231,23 @@ model Notification {
 
   @@unique([incidentId, channelId, event])
 }
+
+// ---------------------------------------------------------------------------
+// First-party, privacy-friendly analytics (no cookies, no raw IPs stored)
+// ---------------------------------------------------------------------------
+
+// One row per page view. `visitorId` is a SHA-256 of (secret + day + IP + user agent), so it
+// counts unique visitors per day but can't be reversed or linked across days. Kept 90 days.
+model PageView {
+  id        String   @id @default(cuid())
+  path      String
+  // Referrer hostname only (e.g. "google.com"), never the full URL.
+  referrer  String?
+  visitorId String
+  userId    String?
+  device    String   // "mobile" | "desktop"
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([userId, createdAt])
+}

@@ -23,6 +23,9 @@ env:
   # per-IP rate limits (every test request comes from one machine). Never set in production.
   E2E_SHOW_EMAIL_LINKS: "true"
   RATE_LIMIT_IP_MULTIPLIER: "50"
+  # A throwaway admin account for the admin-page e2e test (fresh database every run).
+  ADMIN_EMAILS: admin-ci@e2e.test
+  E2E_ADMIN_EMAIL: admin-ci@e2e.test
 
 jobs:
   # Lint, type-check, unit + integration tests (with real Postgres and Redis) and build.

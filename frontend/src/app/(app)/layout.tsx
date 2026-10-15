@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { AppNav } from "@/components/app-nav";
+import { isAdmin } from "@/lib/admin";
 import { isDemoEmail } from "@/lib/demo";
 import { requireUser } from "@/lib/session";
 
@@ -8,7 +9,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   const user = await requireUser();
   return (
     <div className="min-h-screen">
-      <AppNav name={user.name} email={user.email} isDemo={isDemoEmail(user.email)} />
+      <AppNav name={user.name} email={user.email} isDemo={isDemoEmail(user.email)} isAdmin={isAdmin(user)} />
       <main className="mx-auto max-w-6xl px-4 py-8 sm:py-10">{children}</main>
     </div>
   );
