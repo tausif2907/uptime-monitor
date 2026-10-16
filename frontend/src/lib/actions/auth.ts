@@ -5,7 +5,7 @@ import { emailSchema, resetPasswordSchema, signInSchema, signUpSchema } from "@u
 import bcrypt from "bcryptjs";
 import { AuthError } from "next-auth";
 import { redirect } from "next/navigation";
-import { signIn, signOut } from "@/auth";
+import { authFlags, signIn, signOut } from "@/auth";
 import { actionEmailHtml, emailConfigured, trySendEmail } from "@/lib/email";
 import { fromZodError, type FormState } from "@/lib/form-state";
 import { consume, ipLimit, isBlocked, retryMessage } from "@/lib/rate-limit";
@@ -48,7 +48,10 @@ export async function signInWithPassword(_prev: FormState, formData: FormData): 
   }
 }
 
+const SIGNUP_CLOSED: FormState = { error: "Email sign-up is paused for now — please continue with Google." };
+
 export async function signUp(_prev: FormState, formData: FormData): Promise<FormState> {
+  if (!authFlags.emailSignup) return SIGNUP_CLOSED;
   const parsed = signUpSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return fromZodError(parsed.error);
   const { name, email, password } = parsed.data;
@@ -114,6 +117,7 @@ function sendVerificationEmail(email: string, url: string) {
 }
 
 export async function resendVerification(_prev: FormState, formData: FormData): Promise<FormState> {
+  if (!authFlags.emailSignup) return SIGNUP_CLOSED;
   const email = emailSchema.safeParse(formData.get("email"));
   if (!email.success) return { error: "Enter a valid email address." };
   const limit = await consume([{ key: `verify:resend:${email.data}`, limit: 3, windowSec: 60 * 60 }]);
@@ -196,6 +200,7 @@ export async function signInWithGitHub() {
 }
 
 export async function signInWithMagicLink(_prev: FormState, formData: FormData): Promise<FormState> {
+  if (!authFlags.magicLink) return { error: "Email sign-in links are paused for now — please continue with Google." };
   const email = emailSchema.safeParse(formData.get("email"));
   if (!email.success) return { fieldErrors: { email: ["Enter a valid email address."] } };
   if (!emailConfigured()) return { error: "Email sign-in links aren't configured on this server." };

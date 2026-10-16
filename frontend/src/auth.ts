@@ -32,10 +32,16 @@ if (process.env.DEMO_LOGIN_ENABLED === "true" && !demoPasswordOk) {
   console.warn("[auth] Demo login disabled: set DEMO_PASSWORD to a non-default value in production.");
 }
 
+// New sign-ups by email (verification link) and magic links both need email delivery to
+// arbitrary addresses. Set EMAIL_SIGNUP_ENABLED=false until a sending domain is verified;
+// existing email + password accounts can still sign in.
+const emailSignup = process.env.EMAIL_SIGNUP_ENABLED !== "false";
+
 export const authFlags = {
   google: Boolean(process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET),
   github: Boolean(process.env.AUTH_GITHUB_ID && process.env.AUTH_GITHUB_SECRET),
-  magicLink: Boolean(process.env.RESEND_API_KEY),
+  emailSignup,
+  magicLink: emailSignup && Boolean(process.env.RESEND_API_KEY),
   demo: process.env.DEMO_LOGIN_ENABLED === "true" && demoPasswordOk,
 };
 

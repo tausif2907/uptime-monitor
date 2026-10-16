@@ -49,8 +49,22 @@ export default async function LoginPage({
       )}
 
       <OAuthButtons />
-      {anyOAuth() && <Divider label="or with email" />}
-      <SignInForm />
+      {authFlags.emailSignup || !anyOAuth() ? (
+        <>
+          {anyOAuth() && <Divider label="or with email" />}
+          <SignInForm />
+        </>
+      ) : (
+        // Email sign-up is paused: keep password sign-in for existing accounts, tucked away.
+        <details className="group text-sm">
+          <summary className="cursor-pointer list-none text-center text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200">
+            Have an email + password account? <span className="font-medium text-brand-600 group-open:hidden">Sign in here</span>
+          </summary>
+          <div className="mt-4">
+            <SignInForm />
+          </div>
+        </details>
+      )}
 
       {authFlags.magicLink && (
         <>

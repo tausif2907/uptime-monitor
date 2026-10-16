@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { auth } from "@/auth";
+import { auth, authFlags } from "@/auth";
 import { SignUpForm } from "@/components/auth/auth-forms";
 import { AuthShell, Divider } from "@/components/auth/auth-shell";
 import { anyOAuth, OAuthButtons } from "@/components/auth/oauth-buttons";
@@ -24,8 +24,16 @@ export default async function SignUpPage() {
       }
     >
       <OAuthButtons verb="Sign up" />
-      {anyOAuth() && <Divider label="or with email" />}
-      <SignUpForm />
+      {authFlags.emailSignup ? (
+        <>
+          {anyOAuth() && <Divider label="or with email" />}
+          <SignUpForm />
+        </>
+      ) : (
+        <p className="text-center text-xs text-zinc-500">
+          It&apos;s free and takes one click. Email sign-up is coming soon.
+        </p>
+      )}
     </AuthShell>
   );
 }
