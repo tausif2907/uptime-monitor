@@ -106,3 +106,13 @@ Put the live URL and demo instructions at the top of the README.
 
 - **Render:** a *Background Worker* (paid) or *Web Service* using `backend/Dockerfile`, with Docker context = repo root and health check `/health`.
 - **Fly.io:** `fly launch --dockerfile backend/Dockerfile`, then set the same env vars as secrets.
+
+## Current production setup
+
+- **Website:** https://uptime-monitor-seven-tau.vercel.app (Vercel, root directory `frontend`)
+- **Worker:** https://worker-production-18e6.up.railway.app/health (Railway, `RAILWAY_DOCKERFILE_PATH=backend/Dockerfile`)
+- **Auto-deploy:** both are connected to `tausif2907/uptime-monitor` and deploy on every push to `main`.
+  Railway only rebuilds the worker when `backend/`, `packages/`, `pnpm-lock.yaml` or `railway.json` change.
+- **Sign-up:** `EMAIL_SIGNUP_ENABLED=false` in production, so new users sign up with Google until a
+  sending domain is verified in Resend. Set it to `true` and redeploy to bring back email sign-up and magic links.
+- **Secrets:** use `scripts/deploy/configure-production.ps1` and `scripts/deploy/set-google-auth.ps1`; they never print secrets.
